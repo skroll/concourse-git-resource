@@ -1674,3 +1674,11 @@ put_uri_with_push_options() {
     }
   }" | ${resource_dir}/out "$2" | tee /dev/stderr
 }
+
+get_github_app_private_key() {
+  cat ${test_dir}/github_app/private.pem
+}
+
+get_github_app_private_key_json() {
+  echo "$(get_github_app_private_key | jq -Rs .)"
+}

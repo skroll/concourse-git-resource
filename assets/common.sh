@@ -295,3 +295,124 @@ load_git_crypt_key() {
       cat $git_crypt_tmp_key_path | tr ' ' '\n' | base64 -d > $GIT_CRYPT_KEY_PATH
   fi
 }
+
+create_github_app_jwt() {
+  # reference: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-a-json-web-token-jwt-for-a-github-app
+  local client_id=$1
+  local pem=$2
+  local iat=$3
+  local exp=$4
+
+  b64enc() { base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n'; }
+
+  local header_json='{"typ":"JWT","alg":"RS256"}'
+
+  local header=$(echo -n "${header_json}" | b64enc)
+
+  local payload_json="{\"iat\":${iat},\"exp\":${exp},\"iss\":\"${client_id}\"}"
+
+  local payload=$(echo -n "${payload_json}" | b64enc)
+
+  local header_payload="${header}"."${payload}"
+  local signature=$(
+    openssl dgst -sha256 -sign <(echo -n "${pem}") \
+      <(echo -n "${header_payload}") | b64enc
+  )
+
+  echo "${header_payload}"."${signature}"
+}
+
+get_github_app_install_id() {
+  # references:
+  # https://docs.github.com/en/rest/apps/apps?apiVersion=2026-03-10#get-an-organization-installation-for-the-authenticated-app
+  # https://docs.github.com/en/rest/apps/apps?apiVersion=2026-03-10#get-a-repository-installation-for-the-authenticated-app
+  # https://docs.github.com/en/rest/apps/apps?apiVersion=2026-03-10#get-a-user-installation-for-the-authenticated-app
+  local base_api_url=$1
+  local jwt=$2
+  local org=$3
+  local user=$4
+  local repo=$5
+  local install_url=""
+
+  if [ -n "$user" ] && [ -z "$repo" ]; then
+    install_url="${base_api_url}/users/${user}/installation"
+  elif [ -n "$org" ]; then
+    install_url="${base_api_url}/orgs/${org}/installation"
+  elif [ -n "$user" ] && [ -n "$repo" ]; then
+    install_url="${base_api_url}/repos/${user}/${repo}/installation"
+  else
+    # this should be guarded by the calling function
+    return 1
+  fi
+
+  local install_id=$(curl -s -X GET -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer ${jwt}" $install_url | jq -r '.id // empty')
+
+  if [ -z "$install_id" ]; then
+    return 1
+  fi
+
+  echo $install_id
+}
+
+get_github_app_access_token() {
+  # reference: https://docs.github.com/en/apps/creating-github-apps/authenticating-with-a-github-app/generating-an-installation-access-token-for-a-github-app?apiVersion=2026-03-10&versionId=free-pro-team%40latest&category=apps&subcategory=oauth-applications&productId=apps&restPage=creating-github-apps%2Cauthenticating-with-a-github-app%2Cgenerating-a-user-access-token-for-a-github-app
+  local base_api_url=$1
+  local jwt=$2
+  local install_id=$3
+
+  local access_token=$(curl -s -X POST -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer ${jwt}" "${base_api_url}/app/installations/${install_id}/access_tokens" | jq -r '.token // empty')
+
+  if [ -z "$access_token" ]; then
+    return 1
+  fi
+
+  echo $access_token
+}
+
+setup_github_app_credentials() {
+  local uri=$(jq -r '.source.uri // empty' <<< "$1")
+  local app_id=$(jq -r '.source.github_app_id // empty' <<< "$1")
+  local private_key=$(jq -r '.source.github_app_private_key // empty' <<< "$1")
+  local org=$(jq -r '.source.github_app_org // empty' <<< "$1")
+  local user=$(jq -r '.source.github_app_user // empty' <<< "$1")
+  local repo=$(jq -r '.source.github_app_repo // empty' <<< "$1")
+
+  if [[ ! ( -n "${uri}" && -n "${app_id}" && -n "${private_key}" && ( -n "${org}" || -n "${user}" )) ]]; then
+    return
+  fi
+
+  if [[ ! $uri =~ ^(https://)([^/]+)/.*$ ]]; then
+    echo "github app authentication needs an https:// source.uri"
+    return
+  fi
+
+  local host=${BASH_REMATCH[2]}
+  local base_url="https://${host}"
+  local base_api_url="https://api.${host}"
+
+  local now=$(date +%s)
+  local iat=$((${now} - 60))  # Issues 60 seconds in the past
+  local exp=$((${now} + 600)) # Expires 10 minutes in the future
+
+  jwt=$(create_github_app_jwt "$app_id" "$private_key" "$iat" "$exp" || true)
+  if [[ -z "$jwt" ]]; then
+    echo "failed to create github app jwt"
+    return 1
+  fi
+
+  install_id=$(get_github_app_install_id "$base_api_url" "$jwt" "$org" "$user" "$repo" || true)
+  if [[ -z "$install_id" ]]; then
+    echo "failed to get github app installation id"
+    return 1
+  fi
+
+  access_token=$(get_github_app_access_token "$base_api_url" "$jwt" "$install_id" || true)
+  if [[ -z "$access_token" ]]; then
+    echo "failed to get github app access token"
+    return 1
+  fi
+
+  git config --global "credential.https://${host}.helper" "!f() { echo \"username=x-access-token\"; echo \"password=${access_token}\"; }; f"
+}

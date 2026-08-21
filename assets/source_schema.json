@@ -31,5 +31,10 @@
   "branch_filters": "",
   "branch_regex": "",
   "tag_filters": "",
-  "tag_sort": ""
+  "tag_sort": "",
+  "github_app_id": "",
+  "github_app_private_key": "",
+  "github_app_org": "",
+  "github_app_user": "",
+  "github_app_repo": ""
 }
