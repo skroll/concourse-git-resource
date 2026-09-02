@@ -313,13 +313,15 @@ create_github_app_jwt() {
 
   local payload=$(echo -n "${payload_json}" | b64enc)
 
-  local header_payload="${header}"."${payload}"
-  local signature=$(
-    openssl dgst -sha256 -sign <(echo -n "${pem}") \
-      <(echo -n "${header_payload}") | b64enc
-  )
+  local header_payload="${header}.${payload}"
+  local signature
+  signature=$(set -o pipefail; openssl dgst -sha256 -sign <(echo -n "${pem}") \
+      <(echo -n "${header_payload}") | b64enc) || {
+    echo "error: openssl signing failed" >&2
+    return 1
+  }
 
-  echo "${header_payload}"."${signature}"
+  echo "${header_payload}.${signature}"
 }
 
 get_github_app_install_id() {
@@ -345,10 +347,12 @@ get_github_app_install_id() {
     return 1
   fi
 
-  local install_id=$(curl -s -X GET -H "Accept: application/vnd.github+json" \
-    -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer ${jwt}" $install_url | jq -r '.id // empty')
+  local install_id_resp=$(curl --max-time 30 --retry 3 -s -X GET -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer ${jwt}" "$install_url")
+  local install_id=$(jq -r '.id // empty' <<< "$install_id_resp")
 
   if [ -z "$install_id" ]; then
+    echo "error: $install_id_resp" >&2
     return 1
   fi
 
@@ -361,14 +365,16 @@ get_github_app_access_token() {
   local jwt=$2
   local install_id=$3
 
-  local access_token=$(curl -s -X POST -H "Accept: application/vnd.github+json" \
-    -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer ${jwt}" "${base_api_url}/app/installations/${install_id}/access_tokens" | jq -r '.token // empty')
+  local access_token_resp=$(curl --max-time 30 --retry 3 -s -X POST -H "Accept: application/vnd.github+json" \
+    -H "X-GitHub-Api-Version: 2026-03-10" -H "Authorization: Bearer ${jwt}" "${base_api_url}/app/installations/${install_id}/access_tokens")
+  local access_token=$(jq -r '.token // empty' <<< "$access_token_resp")
 
   if [ -z "$access_token" ]; then
+      echo "error: $access_token_resp" >&2
     return 1
   fi
 
-  echo $access_token
+  echo "$access_token"
 }
 
 setup_github_app_credentials() {
@@ -385,30 +391,32 @@ setup_github_app_credentials() {
 
   if [[ ! $uri =~ ^(https://)([^/]+)/.*$ ]]; then
     echo "github app authentication needs an https:// source.uri"
-    return
+    return 1
   fi
 
   local host=${BASH_REMATCH[2]}
-  local base_url="https://${host}"
   local base_api_url="https://api.${host}"
 
   local now=$(date +%s)
   local iat=$((${now} - 60))  # Issues 60 seconds in the past
   local exp=$((${now} + 600)) # Expires 10 minutes in the future
 
-  jwt=$(create_github_app_jwt "$app_id" "$private_key" "$iat" "$exp" || true)
+  local jwt
+  jwt=$(create_github_app_jwt "$app_id" "$private_key" "$iat" "$exp")
   if [[ -z "$jwt" ]]; then
     echo "failed to create github app jwt"
     return 1
   fi
 
-  install_id=$(get_github_app_install_id "$base_api_url" "$jwt" "$org" "$user" "$repo" || true)
+  local install_id
+  install_id=$(get_github_app_install_id "$base_api_url" "$jwt" "$org" "$user" "$repo")
   if [[ -z "$install_id" ]]; then
     echo "failed to get github app installation id"
     return 1
   fi
 
-  access_token=$(get_github_app_access_token "$base_api_url" "$jwt" "$install_id" || true)
+  local access_token
+  access_token=$(get_github_app_access_token "$base_api_url" "$jwt" "$install_id")
   if [[ -z "$access_token" ]]; then
     echo "failed to get github app access token"
     return 1

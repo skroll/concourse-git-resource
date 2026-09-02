@@ -498,7 +498,7 @@ resources:
 Resource configuration for a repo authenticated by a GitHub App:
 
 ``` yaml
-resource:
+resources:
 - name: source-code
   type: git
   source:

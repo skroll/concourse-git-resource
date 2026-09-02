@@ -163,11 +163,13 @@ it_creates_github_app_jwt() {
 
     # keep the signature in base64
     local signature=$(echo -n "$jwt" | cut -d'.' -f3)
+    test -n "$signature"
 
     # get the header and payload segments as a single string, we know it has what we expect
     # due to above tests, verify the signature
     local header_and_payload=$(echo -n "$jwt" | cut -d'.' -f1,2)
     local expected_signature=$(openssl dgst -sha256 -sign <(echo -n "${pem}") <(echo -n "${header_and_payload}") | base64 | tr -d '=' | tr '/+' '_-' | tr -d '\n')
+    test -n "$expected_signature"
     test "$signature" = "$expected_signature"
 }
 
@@ -179,20 +181,19 @@ it_gets_github_app_install_id_when_user_set() {
     local repo=""
 
     curl() {
-      test "$1" = "-s" || return 1
-      test "$2" = "-X" || return 1
-      test "$3" = "GET" || return 1
-      test "$4" = "-H" || return 1
-      test "$5" = "Accept: application/vnd.github+json" || return 1
-      test "$6" = "-H" || return 1
-      test "$7" = "X-GitHub-Api-Version: 2026-03-10" || return 1
-      test "$8" = "-H" || return 1
-      test "$9" = "Authorization: Bearer my-jwt" || return 1
-      test "${10}" = "https://api.company.ghe.com/users/company_user/installation" || return 1
+      test "${5}" = "-s" || return 1
+      test "${6}" = "-X" || return 1
+      test "${7}" = "GET" || return 1
+      test "${8}" = "-H" || return 1
+      test "${9}" = "Accept: application/vnd.github+json" || return 1
+      test "${10}" = "-H" || return 1
+      test "${11}" = "X-GitHub-Api-Version: 2026-03-10" || return 1
+      test "${12}" = "-H" || return 1
+      test "${13}" = "Authorization: Bearer my-jwt" || return 1
+      test "${14}" = "https://api.company.ghe.com/users/company_user/installation" || return 1
 
       echo '{"id": 999911}'
     }
-    export -f curl
     test $(get_github_app_install_id "$base_api_url" "$jwt" "$org" "$user" "$repo") = 999911
     unset curl
 }
@@ -205,20 +206,19 @@ it_gets_github_app_install_id_when_org_set() {
     local repo=""
 
     curl() {
-      test "$1" = "-s" || return 1
-      test "$2" = "-X" || return 1
-      test "$3" = "GET" || return 1
-      test "$4" = "-H" || return 1
-      test "$5" = "Accept: application/vnd.github+json" || return 1
-      test "$6" = "-H" || return 1
-      test "$7" = "X-GitHub-Api-Version: 2026-03-10" || return 1
-      test "$8" = "-H" || return 1
-      test "$9" = "Authorization: Bearer fakejwt" || return 1
-      test "${10}" = "https://api.something.ghe.com/orgs/an_org/installation" || return 1
+      test "${5}" = "-s" || return 1
+      test "${6}" = "-X" || return 1
+      test "${7}" = "GET" || return 1
+      test "${8}" = "-H" || return 1
+      test "${9}" = "Accept: application/vnd.github+json" || return 1
+      test "${10}" = "-H" || return 1
+      test "${11}" = "X-GitHub-Api-Version: 2026-03-10" || return 1
+      test "${12}" = "-H" || return 1
+      test "${13}" = "Authorization: Bearer fakejwt" || return 1
+      test "${14}" = "https://api.something.ghe.com/orgs/an_org/installation" || return 1
 
       echo '{"id": 123456}'
     }
-    export -f curl
     test $(get_github_app_install_id "$base_api_url" "$jwt" "$org" "$user" "$repo") = "123456"
     unset curl
 }
@@ -231,20 +231,19 @@ it_gets_github_app_install_id_when_user_repo_set() {
     local repo="a-concourse-resource"
 
     curl() {
-      test "$1" = "-s" || return 1
-      test "$2" = "-X" || return 1
-      test "$3" = "GET" || return 1
-      test "$4" = "-H" || return 1
-      test "$5" = "Accept: application/vnd.github+json" || return 1
-      test "$6" = "-H" || return 1
-      test "$7" = "X-GitHub-Api-Version: 2026-03-10" || return 1
-      test "$8" = "-H" || return 1
-      test "$9" = "Authorization: Bearer dummyjwt" || return 1
-      test "${10}" = "https://api.github.com/repos/gh_user/a-concourse-resource/installation" || return 1
+      test "${5}" = "-s" || return 1
+      test "${6}" = "-X" || return 1
+      test "${7}" = "GET" || return 1
+      test "${8}" = "-H" || return 1
+      test "${9}" = "Accept: application/vnd.github+json" || return 1
+      test "${10}" = "-H" || return 1
+      test "${11}" = "X-GitHub-Api-Version: 2026-03-10" || return 1
+      test "${12}" = "-H" || return 1
+      test "${13}" = "Authorization: Bearer dummyjwt" || return 1
+      test "${14}" = "https://api.github.com/repos/gh_user/a-concourse-resource/installation" || return 1
 
       echo '{"id": 56421}'
     }
-    export -f curl
     test $(get_github_app_install_id "$base_api_url" "$jwt" "$org" "$user" "$repo") = "56421"
     unset curl
 }
@@ -255,20 +254,19 @@ it_gets_github_app_access_token() {
     local install_id="41234"
 
     curl() {
-      test "$1" = "-s" || return 1
-      test "$2" = "-X" || return 1
-      test "$3" = "POST" || return 1
-      test "$4" = "-H" || return 1
-      test "$5" = "Accept: application/vnd.github+json" || return 1
-      test "$6" = "-H" || return 1
-      test "$7" = "X-GitHub-Api-Version: 2026-03-10" || return 1
-      test "$8" = "-H" || return 1
-      test "$9" = "Authorization: Bearer some-jwt" || return 1
-      test "${10}" = "https://api.ourcompany.github.com/app/installations/41234/access_tokens" || return 1
+      test "${5}" = "-s" || return 1
+      test "${6}" = "-X" || return 1
+      test "${7}" = "POST" || return 1
+      test "${8}" = "-H" || return 1
+      test "${9}" = "Accept: application/vnd.github+json" || return 1
+      test "${10}" = "-H" || return 1
+      test "${11}" = "X-GitHub-Api-Version: 2026-03-10" || return 1
+      test "${12}" = "-H" || return 1
+      test "${13}" = "Authorization: Bearer some-jwt" || return 1
+      test "${14}" = "https://api.ourcompany.github.com/app/installations/41234/access_tokens" || return 1
 
       echo '{"token": "mytoken"}'
     }
-    export -f curl
     test $(get_github_app_access_token "$base_api_url" "$jwt" "$install_id") = "mytoken"
     unset curl
 }

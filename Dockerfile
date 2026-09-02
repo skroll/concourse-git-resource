@@ -20,6 +20,7 @@ RUN apk --no-cache add \
     bash \
     ca-certificates \
     coreutils \
+    curl \
     git \
     git-crypt \
     git-lfs \
@@ -29,8 +30,7 @@ RUN apk --no-cache add \
     gpg-agent \
     jq \
     openssh-client \
-    openssl \
-    curl
+    openssl
 
 RUN git config --global user.email "git@localhost"
 RUN git config --global user.name "git"
