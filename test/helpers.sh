@@ -1674,3 +1674,15 @@ put_uri_with_push_options() {
     }
   }" | ${resource_dir}/out "$2" | tee /dev/stderr
 }
+
+get_github_app_private_key() {
+    local key="${TMPDIR}/github_app_key"
+    if [[ ! -e "$key" ]]; then
+        ssh-keygen -f "${key}" -m PEM -t rsa -b 2048 -q -N ""
+    fi
+    cat "$key"
+}
+
+get_github_app_private_key_json() {
+    jq -Rs . <<< "$(get_github_app_private_key)"
+}

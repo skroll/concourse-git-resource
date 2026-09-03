@@ -41,6 +41,7 @@ load_pubkey "$payload"
 load_git_crypt_key "$payload"
 configure_https_tunnel "$payload"
 configure_git_ssl_verification "$payload"
+setup_github_app_credentials "$payload"
 configure_credentials "$payload"
 
 # These vars are used by multiple version_type's

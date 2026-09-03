@@ -64,6 +64,26 @@ private_key: |
     <td>Username for HTTP(S) auth when pulling/pushing. This is needed when only HTTP/HTTPS protocol for git is available (which does not support private key auth) and auth is required.</td>
   </tr>
   <tr>
+    <td><code>github_app_id</code> (Optional)</td>
+    <td>GitHub App ID (or Client ID) to use to authenticate as.</td>
+  </tr>
+  <tr>
+    <td><code>github_app_private_key</code> (Optional)</td>
+    <td>GitHub App private key credential for generating access tokens.</td>
+  </tr>
+  <tr>
+    <td><code>github_app_org</code> (Optional)</td>
+    <td>Organization where GitHub App is installed.</td>
+  </tr>
+  <tr>
+    <td><code>github_app_user</code> (Optional)</td>
+    <td>User or owner of the repository where GitHub App is installed. If <code>github_app_repo</code> is not present, GitHub app is assumed to be installed on the user, otherwise it is assumed to be installed in the repository.</td>
+  </tr>
+  <tr>
+    <td><code>github_app_repo</code> (Optional)</td>
+    <td>Repository where GitHub App is installed. <code>github_app_user</code> must also be set.</td>
+  </tr>
+  <tr>
     <td><code>password</code> (Optional)</td>
     <td>Password for HTTP(S) auth when pulling/pushing.</td>
   </tr>
@@ -473,6 +493,23 @@ resources:
     branch: master
   version:
     ref: commit-sha
+```
+
+Resource configuration for a repo authenticated by a GitHub App:
+
+``` yaml
+resources:
+- name: source-code
+  type: git
+  source:
+    uri: https://github.com/concourse/git-resource
+    branch: master
+    github_app_id: mPL4Ecjs4FqYC9PKcGny
+    github_app_org: concourse
+    github_app_private_key: |
+      -----BEGIN RSA PRIVATE KEY-----
+      ...
+      -----END RSA PRIVATE KEY-----
 ```
 
 ## Behavior
